@@ -1,12 +1,10 @@
 import os
-import re
-import i18n
-from typing import Optional
-from pathlib import Path
 from contextlib import asynccontextmanager
+from pathlib import Path
+from typing import Optional
 
-from fastapi import FastAPI, Request, Query, HTTPException
-from starlette.middleware.base import BaseHTTPMiddleware
+import i18n
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -29,70 +27,56 @@ def setup_i18n():
     i18n.load_path.append(str(TRANSLATIONS_DIR))
 
 def parse_accept_language(accept_language: str) -> list[tuple[str, float]]:
-    """Parse Accept-Language header with q-values"""
-    languages = []
+    """Parse an ``Accept-Language`` header into ordered language options."""
     if not accept_language:
-        return languages
-    
-    for item in accept_language.split(','):
-        item = item.strip()
-        if ';q=' in item:
-            lang, quality = item.split(';q=', 1)
-            try:
-                quality = float(quality.strip())
-            except ValueError:
-                quality = 1.0
-        else:
-            lang = item
-            quality = 1.0
-        
-        lang = lang.strip().lower()
-        languages.append((lang, quality))
-    
-    # Sort by quality (highest first)
-    languages.sort(key=lambda x: x[1], reverse=True)
-    return languages
+        return []
 
-class I18nMiddleware(BaseHTTPMiddleware):
-    """Middleware to detect and set user language preference"""
-    
-    async def dispatch(self, request: Request, call_next):
-        # Check for language in query parameter first
-        lang = request.query_params.get("lang")
-        if lang:
-            lang = lang.lower()
-        
-        # If not in query params, check Accept-Language header
-        if not lang or lang not in SUPPORTED_LANGUAGES:
-            accept_language = request.headers.get("accept-language", "")
-            if accept_language:
-                # Parse Accept-Language header with q-values
-                parsed_languages = parse_accept_language(accept_language)
-                for language, _ in parsed_languages:
-                    # Check for exact match
-                    if language in SUPPORTED_LANGUAGES:
-                        lang = language
-                        break
-                    # Check for language prefix (e.g., en-US -> en)
-                    elif '-' in language:
-                        prefix = language.split('-')[0]
-                        if prefix in SUPPORTED_LANGUAGES:
-                            lang = prefix
-                            break
-        
-        # Default to English if no valid language found
-        if not lang or lang not in SUPPORTED_LANGUAGES:
-            lang = DEFAULT_LANGUAGE
-        
-        # Store language in request state for response metadata
-        request.state.language = lang
-        
-        response = await call_next(request)
-        
-        # Add Content-Language header to response
-        response.headers["Content-Language"] = lang
-        
-        return response
+    languages: list[tuple[str, float]] = []
+    for item in accept_language.split(','):
+        cleaned = item.strip()
+        if not cleaned:
+            continue
+
+        lang, _, quality_value = cleaned.partition(';q=')
+        try:
+            quality = float(quality_value) if quality_value else 1.0
+        except ValueError:
+            quality = 1.0
+
+        languages.append((lang.strip().lower(), quality))
+
+    return sorted(languages, key=lambda option: option[1], reverse=True)
+
+def normalise_language(language: Optional[str]) -> Optional[str]:
+    """Return a supported language code or ``None`` if unavailable."""
+    if not language:
+        return None
+
+    language = language.lower()
+    if language in SUPPORTED_LANGUAGES:
+        return language
+
+    if '-' in language:
+        prefix = language.split('-', 1)[0]
+        if prefix in SUPPORTED_LANGUAGES:
+            return prefix
+
+    return None
+
+
+def detect_language(request: Request) -> str:
+    """Pick the best matching language from the incoming request."""
+    query_language = normalise_language(request.query_params.get("lang"))
+    if query_language:
+        return query_language
+
+    header_language = request.headers.get("accept-language", "")
+    for language, _ in parse_accept_language(header_language):
+        selected = normalise_language(language)
+        if selected:
+            return selected
+
+    return DEFAULT_LANGUAGE
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -111,7 +95,17 @@ app = FastAPI(
 )
 
 # Add middleware
-app.add_middleware(I18nMiddleware)
+
+
+@app.middleware("http")
+async def add_language_to_request(request: Request, call_next):
+    """Attach the detected language to the request and mark the response."""
+    language = detect_language(request)
+    request.state.language = language
+
+    response = await call_next(request)
+    response.headers["Content-Language"] = language
+    return response
 
 # Response models
 class WelcomeResponse(BaseModel):
@@ -210,4 +204,5 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=5000)
