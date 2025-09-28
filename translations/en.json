@@ -1,12 +1,15 @@
 {
-  "welcome_with_name": "Welcome, %{name}! This is a FastAPI internationalization demo.",
-  "welcome": "Welcome! This is a FastAPI internationalization demo.",
-  "hello": "Hello! How are you today?",
-  "error_demo": "This is a demonstration error message.",
-  "language_info": "Current language information",
-  "item_count": {
-    "zero": "You have no items.",
-    "one": "You have %{count} item.",
-    "other": "You have %{count} items."
+  "en": {
+    "welcome_with_name": "Welcome, %{name}! This is a FastAPI internationalization demo.",
+    "welcome": "Welcome! This is a FastAPI internationalization demo.",
+    "hello": "Hello! How are you today?",
+    "error_demo": "This is a demonstration error message.",
+    "language_info": "Current language information",
+    "negative_number_error": "Number must be positive.",
+    "item_count": {
+      "zero": "You have no items.",
+      "one": "You have %{count} item.",
+      "other": "You have %{count} items."
+    }
   }
 }

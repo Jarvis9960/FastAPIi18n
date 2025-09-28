@@ -84,9 +84,6 @@ class I18nMiddleware(BaseHTTPMiddleware):
         if not lang or lang not in SUPPORTED_LANGUAGES:
             lang = DEFAULT_LANGUAGE
         
-        # Set the locale for this request
-        i18n.set('locale', lang)
-        
         # Store language in request state for response metadata
         request.state.language = lang
         
@@ -142,9 +139,9 @@ async def welcome(request: Request, name: Optional[str] = Query(None)):
     language = request.state.language
     
     if name:
-        message = i18n.t('welcome_with_name', name=name)
+        message = i18n.t('welcome_with_name', locale=language, name=name)
     else:
-        message = i18n.t('welcome')
+        message = i18n.t('welcome', locale=language)
     
     return WelcomeResponse(
         message=message,
@@ -158,7 +155,7 @@ async def hello(request: Request):
     language = request.state.language
     
     return WelcomeResponse(
-        message=i18n.t('hello'),
+        message=i18n.t('hello', locale=language),
         language=language
     )
 
@@ -168,11 +165,11 @@ async def count_items(request: Request, number: int):
     language = request.state.language
     
     if number < 0:
-        error_message = i18n.t('error_demo') + " (Number must be positive)"
+        error_message = i18n.t('negative_number_error', locale=language)
         raise HTTPException(status_code=400, detail=error_message)
     
     # Use python-i18n's built-in pluralization
-    message = i18n.t('item_count', count=number)
+    message = i18n.t('item_count', locale=language, count=number)
     
     return CountResponse(
         message=message,
@@ -185,7 +182,7 @@ async def error_demo(request: Request):
     """Endpoint demonstrating localized error messages"""
     language = request.state.language
     
-    error_message = i18n.t('error_demo')
+    error_message = i18n.t('error_demo', locale=language)
     
     return JSONResponse(
         status_code=400,
@@ -203,7 +200,7 @@ async def language_info(request: Request):
     return LanguageInfo(
         current_language=language,
         supported_languages=SUPPORTED_LANGUAGES,
-        message=i18n.t('language_info')
+        message=i18n.t('language_info', locale=language)
     )
 
 @app.get("/health")

@@ -1,12 +1,15 @@
 {
-  "welcome_with_name": "Bienvenue, %{name}! Ceci est une démonstration d'internationalisation FastAPI.",
-  "welcome": "Bienvenue! Ceci est une démonstration d'internationalisation FastAPI.",
-  "hello": "Bonjour! Comment allez-vous aujourd'hui?",
-  "error_demo": "Ceci est un message d'erreur de démonstration.",
-  "language_info": "Informations sur la langue actuelle",
-  "item_count": {
-    "zero": "Vous n'avez aucun article.",
-    "one": "Vous avez %{count} article.",
-    "other": "Vous avez %{count} articles."
+  "fr": {
+    "welcome_with_name": "Bienvenue, %{name}! Ceci est une démonstration d'internationalisation FastAPI.",
+    "welcome": "Bienvenue! Ceci est une démonstration d'internationalisation FastAPI.",
+    "hello": "Bonjour! Comment allez-vous aujourd'hui?",
+    "error_demo": "Ceci est un message d'erreur de démonstration.",
+    "language_info": "Informations sur la langue actuelle",
+    "negative_number_error": "Le nombre doit être positif.",
+    "item_count": {
+      "zero": "Vous n'avez aucun article.",
+      "one": "Vous avez %{count} article.",
+      "other": "Vous avez %{count} articles."
+    }
   }
 }
