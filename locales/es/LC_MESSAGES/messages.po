@@ -1,0 +1,28 @@
+# Spanish translations for FastAPI i18n demo
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: es\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "Welcome, {name}! This is a FastAPI internationalization demo."
+msgstr "¡Bienvenido, {name}! Esta es una demostración de internacionalización de FastAPI."
+
+msgid "Welcome! This is a FastAPI internationalization demo."
+msgstr "¡Bienvenido! Esta es una demostración de internacionalización de FastAPI."
+
+msgid "Hello! How are you today?"
+msgstr "¡Hola! ¿Cómo estás hoy?"
+
+msgid "You have {count} item."
+msgid_plural "You have {count} items."
+msgstr[0] "Tienes {count} artículo."
+msgstr[1] "Tienes {count} artículos."
+
+msgid "This is a demonstration error message."
+msgstr "Este es un mensaje de error de demostración."
+
+msgid "Current language information"
+msgstr "Información del idioma actual"
