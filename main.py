@@ -1,6 +1,6 @@
 import os
-import gettext
 import re
+import i18n
 from typing import Optional
 from pathlib import Path
 from contextlib import asynccontextmanager
@@ -11,56 +11,22 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 # Translation setup
-LOCALES_DIR = Path("locales")
+TRANSLATIONS_DIR = Path("translations")
 SUPPORTED_LANGUAGES = ["en", "es", "fr"]
 DEFAULT_LANGUAGE = "en"
 
-# Global translation storage
-translations = {}
-
-def load_translations():
-    """Load all translation files"""
-    global translations
-    for lang in SUPPORTED_LANGUAGES:
-        try:
-            translation = gettext.translation(
-                'messages',
-                localedir=LOCALES_DIR,
-                languages=[lang],
-                fallback=True
-            )
-            translations[lang] = translation
-        except FileNotFoundError:
-            # Fallback to default translation
-            translations[lang] = gettext.NullTranslations()
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Application lifespan manager"""
-    # Startup
-    os.makedirs(LOCALES_DIR, exist_ok=True)
-    load_translations()
-    yield
-    # Shutdown (nothing to clean up in this demo)
-
-# Initialize FastAPI app
-app = FastAPI(
-    title="FastAPI Internationalization Demo", 
-    version="1.0.0",
-    lifespan=lifespan
-)
-
-def get_translation(language: str):
-    """Get translation function for specific language"""
-    if language not in translations:
-        language = DEFAULT_LANGUAGE
-    return translations[language].gettext
-
-def get_ngettext(language: str):
-    """Get pluralization translation function for specific language"""
-    if language not in translations:
-        language = DEFAULT_LANGUAGE
-    return translations[language].ngettext
+def setup_i18n():
+    """Initialize i18n configuration"""
+    # Configure i18n
+    i18n.set('filename_format', '{locale}.{format}')
+    i18n.set('file_format', 'json')
+    i18n.set('fallback', DEFAULT_LANGUAGE)
+    i18n.set('locale', DEFAULT_LANGUAGE)
+    i18n.set('enable_memoization', True)
+    
+    # Add translation files directory
+    i18n.load_path.clear()
+    i18n.load_path.append(str(TRANSLATIONS_DIR))
 
 def parse_accept_language(accept_language: str) -> list[tuple[str, float]]:
     """Parse Accept-Language header with q-values"""
@@ -117,12 +83,35 @@ class I18nMiddleware(BaseHTTPMiddleware):
         # Default to English if no valid language found
         if not lang or lang not in SUPPORTED_LANGUAGES:
             lang = DEFAULT_LANGUAGE
-            
-        # Store language in request state
+        
+        # Set the locale for this request
+        i18n.set('locale', lang)
+        
+        # Store language in request state for response metadata
         request.state.language = lang
         
         response = await call_next(request)
+        
+        # Add Content-Language header to response
+        response.headers["Content-Language"] = lang
+        
         return response
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan manager"""
+    # Startup
+    os.makedirs(TRANSLATIONS_DIR, exist_ok=True)
+    setup_i18n()
+    yield
+    # Shutdown (nothing to clean up in this demo)
+
+# Initialize FastAPI app
+app = FastAPI(
+    title="FastAPI Internationalization Demo", 
+    version="1.0.0",
+    lifespan=lifespan
+)
 
 # Add middleware
 app.add_middleware(I18nMiddleware)
@@ -147,17 +136,15 @@ class LanguageInfo(BaseModel):
     supported_languages: list[str]
     message: str
 
-
 @app.get("/", response_model=WelcomeResponse)
 async def welcome(request: Request, name: Optional[str] = Query(None)):
     """Welcome endpoint with personalized greeting"""
     language = request.state.language
-    _ = get_translation(language)
     
     if name:
-        message = _("Welcome, {name}! This is a FastAPI internationalization demo.").format(name=name)
+        message = i18n.t('welcome_with_name', name=name)
     else:
-        message = _("Welcome! This is a FastAPI internationalization demo.")
+        message = i18n.t('welcome')
     
     return WelcomeResponse(
         message=message,
@@ -169,10 +156,9 @@ async def welcome(request: Request, name: Optional[str] = Query(None)):
 async def hello(request: Request):
     """Simple hello endpoint"""
     language = request.state.language
-    _ = get_translation(language)
     
     return WelcomeResponse(
-        message=_("Hello! How are you today?"),
+        message=i18n.t('hello'),
         language=language
     )
 
@@ -180,16 +166,13 @@ async def hello(request: Request):
 async def count_items(request: Request, number: int):
     """Endpoint demonstrating pluralization"""
     language = request.state.language
-    ngettext = get_ngettext(language)
     
     if number < 0:
-        raise HTTPException(status_code=400, detail="Number must be positive")
+        error_message = i18n.t('error_demo') + " (Number must be positive)"
+        raise HTTPException(status_code=400, detail=error_message)
     
-    message = ngettext(
-        "You have {count} item.",
-        "You have {count} items.",
-        number
-    ).format(count=number)
+    # Use python-i18n's built-in pluralization
+    message = i18n.t('item_count', count=number)
     
     return CountResponse(
         message=message,
@@ -201,28 +184,26 @@ async def count_items(request: Request, number: int):
 async def error_demo(request: Request):
     """Endpoint demonstrating localized error messages"""
     language = request.state.language
-    _ = get_translation(language)
     
-    error_message = _("This is a demonstration error message.")
+    error_message = i18n.t('error_demo')
     
     return JSONResponse(
         status_code=400,
         content=ErrorResponse(
             error=error_message,
             language=language
-        ).dict()
+        ).model_dump()
     )
 
 @app.get("/language-info", response_model=LanguageInfo)
 async def language_info(request: Request):
     """Get current language information"""
     language = request.state.language
-    _ = get_translation(language)
     
     return LanguageInfo(
         current_language=language,
         supported_languages=SUPPORTED_LANGUAGES,
-        message=_("Current language information")
+        message=i18n.t('language_info')
     )
 
 @app.get("/health")
